@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      width: 300px;
+      padding: 15px;
+      font-family: Arial, sans-serif;
+    }
+    button {
+      width: 100%;
+      padding: 8px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #status {
+      margin-top: 15px;
+      color: #555;
+    }
+    .loader {
+      border: 3px solid #f3f3f3;
+      border-radius: 50%;
+      border-top: 3px solid #3498db;
+      width: 20px;
+      height: 20px;
+      animation: spin 2s linear infinite;
+      display: none;
+      margin: 10px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .coupon-stats {
+      margin-top: 15px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h2>ShopRite Coupon Clipper</h2>
+  <p>Click the button below to clip all available coupons in your ShopRite account</p>
+  <button id="clipCoupons">Clip All Coupons</button>
+  <div class="loader" id="loader"></div>
+  <div id="status">Ready to clip coupons</div>
+  <div class="coupon-stats" id="couponStats">
+    <p>Total coupons: <span id="totalCoupons">0</span></p>
+    <p>Clipped successfully: <span id="clippedCoupons">0</span></p>
+    <p>Already clipped: <span id="alreadyClipped">0</span></p>
+    <p>Failed to clip: <span id="failedCoupons">0</span></p>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
