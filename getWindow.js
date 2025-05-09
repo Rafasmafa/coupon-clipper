@@ -7,7 +7,7 @@
     try {
       if (window.__PRELOADED_STATE__ && window.__PRELOADED_STATE__.customer?.details?.loyaltyId) {
         const loyaltyId = window.__PRELOADED_STATE__.customer.details.loyaltyId;
-        console.log("getWindow.js: Main-world: Loyalty ID extracted:", loyaltyId);
+//        console.log("getWindow.js: Main-world: Loyalty ID extracted:", loyaltyId);
         window.postMessage(
           {
             source: MESSAGE_PREFIX,
@@ -54,7 +54,7 @@
   // Observe DOM changes to detect __PRELOADED_STATE__ loading
   const observer = new MutationObserver(() => {
     if (window.__PRELOADED_STATE__ && !window.__LOYALTY_ID_EXTRACTED__) {
-      console.log("getWindow.js: __PRELOADED_STATE__ detected via observer");
+//      console.log("getWindow.js: __PRELOADED_STATE__ detected via observer");
       extractLoyaltyId();
     }
   });
@@ -69,12 +69,12 @@
   let attempts = 0;
   const pollInterval = setInterval(() => {
     if (window.__PRELOADED_STATE__ && !window.__LOYALTY_ID_EXTRACTED__) {
-      console.log("getWindow.js: __PRELOADED_STATE__ detected via polling");
+//      console.log("getWindow.js: __PRELOADED_STATE__ detected via polling");
       extractLoyaltyId();
       clearInterval(pollInterval);
       observer.disconnect();
     } else if (attempts >= maxAttempts) {
-      console.log("getWindow.js: Stopped polling for __PRELOADED_STATE__");
+//      console.log("getWindow.js: Stopped polling for __PRELOADED_STATE__");
       clearInterval(pollInterval);
       observer.disconnect();
     }
@@ -85,6 +85,6 @@
   setTimeout(() => {
     observer.disconnect();
     clearInterval(pollInterval);
-    console.log("getWindow.js: Stopped observing and polling for __PRELOADED_STATE__");
+//    console.log("getWindow.js: Stopped observing and polling for __PRELOADED_STATE__");
   }, 10000);
 })();

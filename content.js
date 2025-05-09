@@ -8,7 +8,7 @@ const MESSAGE_PREFIX = "SHOPRITE_EXTENSION_";
 const s = document.createElement("script");
 s.src = chrome.runtime.getURL("getWindow.js");
 s.onload = function () {
-  console.log("getWindow.js loaded and injected");
+//  console.log("getWindow.js loaded and injected");
   this.remove();
 };
 s.onerror = function () {
@@ -34,20 +34,20 @@ window.addEventListener("message", event => {
       );
     });
   } else if (event.data.action === "loyaltyIdExtracted") {
-    console.log("content.js: Received loyaltyId:", event.data.loyaltyId || event.data.error);
+//    console.log("content.js: Received loyaltyId:", event.data.loyaltyId || event.data.error);
     chrome.runtime.sendMessage({
       action: "loyaltyIdExtracted",
       loyaltyId: event.data.loyaltyId,
       error: event.data.error
     });
   } else if (event.data.action === "couponTokenExtracted") {
-    console.log("content.js: Received couponToken:", event.data.couponToken);
+//    console.log("content.js: Received couponToken:", event.data.couponToken);
     chrome.runtime.sendMessage({
       action: "couponTokenExtracted",
       couponToken: event.data.couponToken
     });
   } else if (event.data.action === "apiTokenExtracted") {
-    console.log("content.js: Received apiToken:", event.data.apiToken);
+//    console.log("content.js: Received apiToken:", event.data.apiToken);
     chrome.runtime.sendMessage({
       action: "apiTokenExtracted",
       apiToken: event.data.apiToken
@@ -57,7 +57,7 @@ window.addEventListener("message", event => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "refreshPage") {
-    console.log("content.js: Received refreshPage runtime message");
+//    console.log("content.js: Received refreshPage runtime message");
     window.location.reload();
     sendResponse({ status: "Page refresh triggered" });
   }
@@ -85,7 +85,7 @@ function processMainScript() {
       })
       .catch(error => console.error("Error fetching script:", error));
   } else {
-    console.log("No main.*.js scripts found in this frame");
+//    console.log("No main.*.js scripts found in this frame");
   }
 }
 
@@ -98,7 +98,7 @@ const observer = new MutationObserver(mutations => {
     if (mutation.type === "childList") {
       mutation.addedNodes.forEach(node => {
         if (node.tagName === "SCRIPT" && node.src && node.src.includes("main.") && node.src.endsWith(".js")) {
-          console.log("Dynamically added main.*.js script:", node.src);
+//          console.log("Dynamically added main.*.js script:", node.src);
           processMainScript();
         }
       });

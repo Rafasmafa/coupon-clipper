@@ -31,7 +31,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         tokenTimestamp: Date.now()
       },
       () => {
-        console.log("Tokens saved");
         sendResponse({ success: true });
       }
     );
@@ -51,7 +50,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         loyaltyIdTimestamp: Date.now()
       },
       () => {
-        console.log("Loyalty ID saved:", message.loyaltyId);
         sendResponse({ success: true });
       }
     );
@@ -65,7 +63,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         tokenTimestamp: Date.now()
       },
       () => {
-        console.log("couponToken saved:", message.couponToken);
         sendResponse({ success: true });
       }
     );
@@ -79,7 +76,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         tokenTimestamp: Date.now()
       },
       () => {
-        console.log("apiToken saved:", message.apiToken);
         sendResponse({ success: true });
       }
     );
@@ -90,18 +86,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 chrome.webRequest.onBeforeSendHeaders.addListener(
   details => {
     if (details.url.toLowerCase().includes("gettoken/auth/login") && details.method === "POST") {
-      console.log("background.js: Intercepted getToken/auth/login request headers:", details.requestHeaders);
       const xUserKeyHeader = details.requestHeaders.find(header => header.name.toLowerCase() === "x-user-key");
       if (xUserKeyHeader) {
         const xUserKey = xUserKeyHeader.value;
-        console.log("background.js: Found x-user-key:", xUserKey);
         chrome.storage.local.set(
           {
             shopRiteUserKey: xUserKey,
             userKeyTimestamp: Date.now()
           },
           () => {
-            console.log("background.js: Stored x-user-key in chrome.storage.local:", xUserKey);
           }
         );
       } else {
@@ -111,18 +104,6 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
   },
   { urls: ["https://shop-rite-web-prod.azurewebsites.net/getToken/auth/login*"] },
   ["requestHeaders"]
-);
-
-chrome.webRequest.onBeforeRequest.addListener(
-  details => {
-    console.log("background.js: Debug - Request detected:", {
-      url: details.url,
-      method: details.method,
-      type: details.type,
-      initiator: details.initiator
-    });
-  },
-  { urls: ["https://shop-rite-web-prod.azurewebsites.net/*"] }
 );
 
 
@@ -158,7 +139,6 @@ async function clipAllCoupons() {
   try {
     const data = await chrome.storage.local.get([
       "shopRiteAuthToken",
-//      "shopRiteCouponToken",
       "shopRiteApiToken",
       "shopRiteStoreId",
       "shopRiteLoyaltyId",
@@ -169,7 +149,6 @@ async function clipAllCoupons() {
 
     console.log("clipAllCoupons: Retrieved data:", {
       authToken: !!data.shopRiteAuthToken,
-//      couponToken: !!data.shopRiteCouponToken,
       apiToken: !!data.shopRiteApiToken,
       storeId: data.shopRiteStoreId,
       loyaltyId: data.shopRiteLoyaltyId,
@@ -188,11 +167,6 @@ async function clipAllCoupons() {
       return { success: false, error: "Loyalty ID not found. Please log in at shoprite.com and visit the digital coupon page." };
     }
 
-//    if (!couponToken || !data.tokenTimestamp || Date.now() - data.tokenTimestamp > thirtyMinutes) {
-//      console.error("No valid couponToken found. Storage:", data);
-//      return { success: false, error: "Coupon token not found. Please visit the digital coupon page." };
-//    }
-    // Make API call to get coupon token
     const url = "https://shop-rite-web-prod.azurewebsites.net/getToken/auth/login";
     const headers = {
       "Authorization": `Bearer ${apiToken}`,
@@ -229,31 +203,22 @@ async function clipAllCoupons() {
       }
       storeId = cookie.value;
       await chrome.storage.local.set({ shopRiteStoreId: storeId });
-      console.log("Retrieved storeId from cookie:", storeId);
     }
 
-    console.log("Fetching available coupons...");
     const couponsResponse = await fetchAvailableCoupons(couponToken, storeId);
     if (!couponsResponse.success) {
       console.error("fetchAvailableCoupons failed:", couponsResponse.error);
       return couponsResponse;
     }
-    console.log("Fetched coupons:", couponsResponse.coupons.length);
 
-    console.log("Clipping coupons...");
-//    const coupons_ids = couponsResponse.coupons.coupons.map(coupon =>coupon.id);
     await clipCoupons(couponToken, couponsResponse.coupons.coupons);
-    console.log("Coupon clipping completed");
 
-    // background.js
-// Send a message to the content script in the active tab
+    // Send a message to the content script in the active tab
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.id) {
         chrome.tabs.sendMessage(tabs[0].id, { action: "refreshPage" }, (response) => {
           if (chrome.runtime.lastError) {
             console.error("Error sending message:", chrome.runtime.lastError.message);
-          } else {
-            console.log("Message sent successfully:", response);
           }
         });
       }
@@ -272,7 +237,6 @@ async function clipAllCoupons() {
 
 async function fetchAvailableCoupons(couponToken, storeId) {
   try {
-    console.log("fetchAvailableCoupons: Starting with", { couponToken: !!couponToken, storeId });
     const couponUrl = `https://shop-rite-web-prod.azurewebsites.net/proxy/shoprite/coupons/available?storeId=${storeId}`;
 
     const controller = new AbortController();
@@ -294,7 +258,6 @@ async function fetchAvailableCoupons(couponToken, storeId) {
     }
 
     const coupons = await response.json();
-    console.log("fetchAvailableCoupons: Retrieved coupons:", coupons.length);
     return { success: true, coupons: coupons };
   } catch (error) {
     console.error("fetchAvailableCoupons: Error:", error.message);
