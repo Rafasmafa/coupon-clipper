@@ -135,10 +135,38 @@ async function checkLoginStatus() {
   }
 }
 
+async function fetchCouponToken(apiToken, shopRiteUserKey, loyaltyId) {
+  const url = "https://shop-rite-web-prod.azurewebsites.net/getToken/auth/login";
+  const headers = {
+    "Authorization": `Bearer ${apiToken}`,
+    "content-type": "application/json",
+    "x-user-key": shopRiteUserKey
+  };
+  const body = JSON.stringify({ ppc: loyaltyId });
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: headers,
+    body: body
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch coupon token: ${response.status} ${response.statusText}`);
+  }
+
+  const responseData = await response.json();
+  const couponToken = responseData.access_token;
+
+  if (!couponToken) {
+    throw new Error("No access_token found in response");
+  }
+
+  return couponToken;
+}
+
 async function clipAllCoupons() {
   try {
     const data = await chrome.storage.local.get([
-      "shopRiteAuthToken",
       "shopRiteApiToken",
       "shopRiteStoreId",
       "shopRiteLoyaltyId",
@@ -148,14 +176,12 @@ async function clipAllCoupons() {
     ]);
 
     console.log("clipAllCoupons: Retrieved data:", {
-      authToken: !!data.shopRiteAuthToken,
       apiToken: !!data.shopRiteApiToken,
       storeId: data.shopRiteStoreId,
       loyaltyId: data.shopRiteLoyaltyId,
       userKey: !!data.shopRiteUserKey
     });
 
-    let authToken = data.shopRiteAuthToken;
     let apiToken = data.shopRiteApiToken;
     let storeId = data.shopRiteStoreId;
     let loyaltyId = data.shopRiteLoyaltyId;
@@ -167,31 +193,7 @@ async function clipAllCoupons() {
       return { success: false, error: "Loyalty ID not found. Please log in at shoprite.com and visit the digital coupon page." };
     }
 
-    const url = "https://shop-rite-web-prod.azurewebsites.net/getToken/auth/login";
-    const headers = {
-      "Authorization": `Bearer ${apiToken}`,
-      "content-type": "application/json",
-      "x-user-key": shopRiteUserKey
-    };
-    const body = JSON.stringify({ ppc: loyaltyId });
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: headers,
-      body: body
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch coupon token: ${response.status} ${response.statusText}`);
-    }
-
-    const responseData = await response.json();
-    const couponToken = responseData.access_token;
-
-    if (!couponToken) {
-      throw new Error("No access_token found in response");
-    }
-
+    const couponToken = await fetchCouponToken(apiToken, shopRiteUserKey, loyaltyId)
 
     if (!storeId) {
       const cookie = await chrome.cookies.get({
