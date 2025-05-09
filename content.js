@@ -55,6 +55,14 @@ window.addEventListener("message", event => {
   }
 });
 
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "refreshPage") {
+    console.log("content.js: Received refreshPage runtime message");
+    window.location.reload();
+    sendResponse({ status: "Page refresh triggered" });
+  }
+});
+
 function processMainScript() {
   const scripts = Array.from(document.querySelectorAll('script[src*="main."][src$=".js"]'));
   if (scripts.length > 0) {

@@ -18,7 +18,7 @@ document.getElementById('clipCoupons').addEventListener('click', async () => {
         loader.style.display = 'none';
 
         if (result.success) {
-          statusDiv.textContent = `Successfully clipped coupons!`;
+          statusDiv.textContent = `Successfully clipped all coupons!`;
           // Update stats
           document.getElementById('totalCoupons').textContent = result.totalCoupons || 0;
           document.getElementById('clippedCoupons').textContent = result.clippedCount || 0;

@@ -87,28 +87,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-//// WebRequest listener to detect getToken/auth/login
-//chrome.webRequest.onCompleted.addListener(
-//  details => {
-//    console.log("background.js: webRequest completed:", details.url, {
-//      method: details.method,
-//      status: details.statusCode,
-//      initiator: details.initiator
-//    });
-//    if (details.url.toLowerCase().includes("gettoken/auth/login") && details.method === "POST") {
-//      console.log("background.js: Intercepted getToken/auth/login via webRequest", details);
-//      // Send message to content script to poll for token
-//      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-//        if (tabs[0]) {
-//          chrome.tabs.sendMessage(tabs[0].id, { action: "pollForToken" });
-//        }
-//      });
-//    }
-//  },
-//  { urls: ["https://shop-rite-web-prod.azurewebsites.net/getToken/auth/login*"] },
-//  ["responseHeaders"]
-//);
-
 chrome.webRequest.onBeforeSendHeaders.addListener(
   details => {
     if (details.url.toLowerCase().includes("gettoken/auth/login") && details.method === "POST") {
@@ -147,68 +125,6 @@ chrome.webRequest.onBeforeRequest.addListener(
   { urls: ["https://shop-rite-web-prod.azurewebsites.net/*"] }
 );
 
-// Intercept main.*.js response body to extract apiToken
-//chrome.webRequest.onResponseStarted.addListener(
-//  details => {
-//    if (details.url.match(/https:\/\/shop-rite-web-prod\.azurewebsites\.net\/main\.\w+\.js/)) {
-//      console.log("background.js: Intercepted main.*.js response:", {
-//        url: details.url,
-//        status: details.statusCode,
-//        type: details.type
-//      });
-//      const filter = chrome.webRequest.filterResponseData(details.requestId);
-//      let data = [];
-//
-//      filter.ondata = event => {
-//        data.push(event.data);
-//      };
-//
-//      filter.onstop = () => {
-//        try {
-//          // Combine chunks into a single string
-//          const decoder = new TextDecoder("utf-8");
-//          let responseBody = "";
-//          for (const chunk of data) {
-//            responseBody += decoder.decode(chunk, { stream: true });
-//          }
-//
-//          console.log("background.js: main.*.js response body length:", responseBody.length);
-//
-//          // Extract apiToken using regex
-//          const tokenMatch = responseBody.match(/apiToken:\s*"Bearer\s*([^"]+)"/);
-//          if (tokenMatch && tokenMatch[1]) {
-//            const apiToken = tokenMatch[1];
-//            console.log("background.js: Found apiToken:", apiToken);
-//            chrome.storage.local.set(
-//              {
-//                shopRiteApiToken: apiToken,
-//                apiTokenTimestamp: Date.now()
-//              },
-//              () => {
-//                console.log("background.js: Stored apiToken in chrome.storage.local:", apiToken);
-//              }
-//            );
-//          } else {
-//            console.error("background.js: apiToken not found in main.*.js response");
-//          }
-//        } catch (error) {
-//          console.error("background.js: Error processing main.*.js response:", error);
-//        }
-//        // Pass data through
-//        for (const chunk of data) {
-//          filter.write(chunk);
-//        }
-//        filter.close();
-//      };
-//
-//      filter.onerror = error => {
-//        console.error("background.js: Filter error for main.*.js:", error);
-//      };
-//    }
-//  },
-//  { urls: ["https://shop-rite-web-prod.azurewebsites.net/main.*.js"] },
-//  ["blocking"]
-//);
 
 async function checkLoginStatus() {
   const data = await chrome.storage.local.get(["shopRiteAuthToken", "tokenTimestamp"]);
@@ -325,15 +241,28 @@ async function clipAllCoupons() {
     console.log("Fetched coupons:", couponsResponse.coupons.length);
 
     console.log("Clipping coupons...");
-    const results = await clipCoupons(couponToken, couponsResponse.coupons);
-    console.log("Coupon clipping completed:", results);
+//    const coupons_ids = couponsResponse.coupons.coupons.map(coupon =>coupon.id);
+    await clipCoupons(couponToken, couponsResponse.coupons.coupons);
+    console.log("Coupon clipping completed");
+
+    // background.js
+// Send a message to the content script in the active tab
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]?.id) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: "refreshPage" }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error("Error sending message:", chrome.runtime.lastError.message);
+          } else {
+            console.log("Message sent successfully:", response);
+          }
+        });
+      }
+    });
 
     return {
       success: true,
-      totalCoupons: couponsResponse.coupons.length,
-      clippedCount: results.filter(r => r.success).length,
-      alreadyClipped: couponsResponse.coupons.filter(c => c.clipped).length,
-      failedCount: results.filter(r => !r.success).length
+      totalCoupons: couponsResponse.coupons.coupons.length,
+      clippedCount: couponsResponse.coupons.coupons.length,
     };
   } catch (error) {
     console.error("Error clipping coupons:", error);
@@ -373,67 +302,20 @@ async function fetchAvailableCoupons(couponToken, storeId) {
   }
 }
 
-function isCouponAvailable(couponData) {
-  return !couponData.redeemed && !couponData.expired && !couponData.clipped && couponData.enabled;
-}
-
 async function clipCoupons(token, coupons) {
-  const results = [];
   const clipUrl = "https://shop-rite-web-prod.azurewebsites.net/proxy/shoprite/coupons/clip";
+  const coupons_ids = coupons.filter(coupon => coupon.isAvailableForClip).map(coupon => ({ couponId: coupon.id }));
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-  for (const coupon of coupons) {
-    if (!isCouponAvailable(coupon)) {
-      results.push({
-        couponId: coupon.coupon_id,
-        success: false,
-        status: "not_available",
-        message: "Coupon is not available for clipping"
-      });
-      continue;
-    }
-
-    try {
-      console.log("clipCoupons: Clipping coupon:", coupon.coupon_id);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-      const response = await fetch(clipUrl, {
+   const response = await fetch(clipUrl, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          coupon_id: coupon.coupon_id,
-          clip_token: coupon.clip_token
-        }),
+        body: JSON.stringify(coupons_ids),
         signal: controller.signal
       });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`Failed with status: ${response.status} ${response.statusText}`);
-      }
-
-      const responseData = await response.json();
-      const success = responseData.result === true;
-
-      results.push({
-        couponId: coupon.coupon_id,
-        success: success,
-        status: response.status,
-        message: success ? "Successfully clipped" : "Failed to clip"
-      });
-    } catch (error) {
-      console.error("clipCoupons: Error clipping coupon:", coupon.coupon_id, error.message);
-      results.push({
-        couponId: coupon.coupon_id,
-        success: false,
-        error: error.message
-      });
-    }
-  }
-
-  return results;
-}
+   clearTimeout(timeoutId);
+   }
