@@ -20,7 +20,10 @@
   "web_accessible_resources": [
     {
       "resources": ["getWindow.js"],
-      "matches": ["https://*.shoprite.com/*"]
+      "matches": [
+        "https://*.shoprite.com/*",
+        "https://shop-rite-web-prod.azurewebsites.net/*"
+      ]
     }
   ],
   "action": {
